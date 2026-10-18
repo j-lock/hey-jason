@@ -270,6 +270,10 @@ fun AlarmScreen(r: Reminder, onPrimary: () -> Unit, onSecondary: () -> Unit, ear
             Spacer(Modifier.height(10.dp))
             Text(r.note, color = TextLo, fontSize = 16.sp, textAlign = TextAlign.Center)
         }
+        r.place?.let { p ->
+            Spacer(Modifier.height(16.dp))
+            PlaceCard(p)
+        }
         Spacer(Modifier.height(48.dp))
         Box(
             Modifier

@@ -456,7 +456,8 @@ private fun OccRow(o: Occ, now: Long, onOpen: (Reminder) -> Unit, onToggle: (Rem
                 if (r.alarm) append("⏰  ")
                 if (r.early.isNotEmpty()) append("⏳" + r.early.sortedDescending().joinToString(",") { earlyShort(it) } + "  ")
                 if (r.attachments.isNotEmpty()) append("📎${r.attachments.size}  ")
-                if (r.note.isNotBlank()) append("📝")
+                if (r.note.isNotBlank()) append("📝  ")
+                r.place?.let { append("📍 " + it.label) }
             }
             if (badges.isNotBlank()) Text(badges.trim(), color = TextLo, fontSize = 12.sp, maxLines = 1)
         }

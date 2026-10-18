@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,9 +76,6 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
-private val EMOJIS = listOf(
-    "🐘", "📌", "💊", "📞", "🛒", "💼", "🏠", "💪", "🎂", "🩺", "💸", "🚗", "🐶", "🗑️", "🧺", "💡", "❤️", "✈️",
-)
 
 @Composable
 fun EditorScreen(
@@ -94,6 +92,7 @@ fun EditorScreen(
     var repeat by remember { mutableStateOf(initial.repeat) }
     var alarm by remember { mutableStateOf(initial.alarm) }
     var note by remember { mutableStateOf(initial.note) }
+    var place by remember { mutableStateOf(initial.place) }
     val early = remember { mutableStateListOf<Int>().apply { addAll(initial.early) } }
     val attachments = remember { mutableStateListOf<Attachment>().apply { addAll(initial.attachments) } }
     var pendingPhoto by remember { mutableStateOf<File?>(null) }
@@ -116,6 +115,7 @@ fun EditorScreen(
             note = note.trim(),
             attachments = attachments.toList(),
             early = early.distinct().sortedDescending().take(Scheduler.MAX_EARLY),
+            place = place,
             done = if (millis > System.currentTimeMillis()) false else initial.done,
             completedAt = if (millis > System.currentTimeMillis()) 0L else initial.completedAt,
         )
@@ -124,6 +124,15 @@ fun EditorScreen(
     }
 
     BackHandler { cancel() }
+
+    // A place shared from Google Maps lands in whichever reminder is open.
+    val shared = Places.pendingShare.value
+    LaunchedEffect(shared) {
+        if (shared != null) {
+            place = shared
+            Places.pendingShare.value = null
+        }
+    }
 
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val f = pendingPhoto
@@ -229,21 +238,7 @@ fun EditorScreen(
             }
 
             Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                EMOJIS.forEach { e ->
-                    Box(
-                        Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(if (e == emoji) Peanut.copy(alpha = 0.35f) else Card)
-                            .clickable { emoji = e },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(e, fontSize = 22.sp) }
-                }
-            }
+            EmojiQuickRow(emoji) { emoji = it }
 
             // WHEN
             Label("When")
@@ -268,6 +263,10 @@ fun EditorScreen(
                 }
                 Pill("Next week") { dateTime = now.toLocalDate().plusWeeks(1).atTime(9, 0) }
             }
+
+            // WHERE
+            Label("Where")
+            PlaceField(place) { place = it }
 
             // REPEAT
             Label("Repeat")

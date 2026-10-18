@@ -156,7 +156,11 @@ object Notifs {
             IMMUTABLE
         )
 
-        val body = if (r.note.isNotBlank()) r.title + "\n" + r.note else r.title
+        val body = buildString {
+            append(r.title)
+            r.place?.let { append("\n📍 ").append(listOf(it.label, it.address).filter { s -> s.isNotBlank() }.distinct().joinToString(", ")) }
+            if (r.note.isNotBlank()) append("\n").append(r.note)
+        }
         val extras = buildString {
             if (r.attachments.isNotEmpty()) append("\n📎 ${r.attachments.size} attached — tap to open")
         }
@@ -172,7 +176,10 @@ object Notifs {
             .setAutoCancel(true)
             .addAction(0, "✓ Done", action(Scheduler.ACTION_DONE, 0, 1))
             .addAction(0, "Snooze 10m", action(Scheduler.ACTION_SNOOZE, 10, 2))
-            .addAction(0, "1 hour", action(Scheduler.ACTION_SNOOZE, 60, 3))
+
+        val directions = directionsPi(ctx, r)
+        if (directions != null) b.addAction(0, "🧭 Directions", directions)
+        else b.addAction(0, "1 hour", action(Scheduler.ACTION_SNOOZE, 60, 3))
 
         if (r.alarm) {
             val full = PendingIntent.getActivity(
@@ -197,6 +204,15 @@ object Notifs {
     fun cancel(ctx: Context, id: Int) = NotificationManagerCompat.from(ctx).cancel(id)
 
     private fun earlyNid(id: Int) = id + 500_000
+
+    private fun directionsPi(ctx: Context, r: Reminder): PendingIntent? {
+        val p = r.place ?: return null
+        return PendingIntent.getActivity(
+            ctx, r.id * 10 + 6,
+            Places.directionsIntent(p).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IMMUTABLE
+        )
+    }
 
     fun cancelEarly(ctx: Context, id: Int) = NotificationManagerCompat.from(ctx).cancel(earlyNid(id))
 
@@ -227,6 +243,7 @@ object Notifs {
         val whenText = "${describe(r.timeMillis)} (in ${earlyLabel(minutes)})"
         val body = buildString {
             append(r.title).append("\n").append(whenText.replaceFirstChar { it.uppercaseChar() })
+            r.place?.let { append("\n📍 ").append(it.label) }
             if (r.note.isNotBlank()) append("\n").append(r.note)
         }
         val b = NotificationCompat.Builder(ctx, if (r.alarm) CH_ALARM else CH_REMIND)
@@ -241,6 +258,7 @@ object Notifs {
             .setAutoCancel(true)
             .addAction(0, "👍 Got it", gotIt)
             .addAction(0, "✓ Done already", doneAlready)
+        directionsPi(ctx, r)?.let { b.addAction(0, "🧭 Directions", it) }
 
         if (r.alarm) {
             val full = PendingIntent.getActivity(

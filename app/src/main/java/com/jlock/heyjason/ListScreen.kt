@@ -284,6 +284,15 @@ fun ReminderCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(2.dp))
+            r.place?.let { p ->
+                Text(
+                    "📍 " + p.label,
+                    color = Trunk,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 whenText + badges,
                 color = if (overdue) Coral else TextLo,

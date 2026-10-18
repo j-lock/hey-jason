@@ -91,6 +91,15 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
         }
     }
 
+    // Shared a place from Google Maps with no reminder open → start a new one with it.
+    val sharedPlace = Places.pendingShare.value
+    LaunchedEffect(sharedPlace, editing) {
+        if (sharedPlace != null && editing == null) {
+            editing = Reminder(Store.nextId(), "", defaultTime())
+            isNew = true
+        }
+    }
+
     fun confirm(r: Reminder) {
         val extra = when (r.early.size) {
             0 -> ""

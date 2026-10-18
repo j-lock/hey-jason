@@ -18,6 +18,17 @@ data class Attachment(val file: String, val name: String, val mime: String) {
     val isImage: Boolean get() = mime.startsWith("image/")
 }
 
+/** Where a reminder happens. lat/lon are known when picked from search; url when shared from Google Maps. */
+data class Place(
+    val name: String,
+    val address: String = "",
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val url: String = "",
+) {
+    val label: String get() = name.ifBlank { address }
+}
+
 data class Reminder(
     val id: Int,
     val title: String,
@@ -31,6 +42,7 @@ data class Reminder(
     val attachments: List<Attachment> = emptyList(),
     /** Heads-up alerts, in minutes before the reminder's time. */
     val early: List<Int> = emptyList(),
+    val place: Place? = null,
 )
 
 /** "1 hour", "2 days", "15 min"… */
@@ -139,6 +151,15 @@ object Store {
                         Attachment(a.getString("file"), a.optString("name"), a.optString("mime"))
                     },
                     early = (0 until early.length()).map { j -> early.getInt(j) },
+                    place = o.optJSONObject("place")?.let { p ->
+                        Place(
+                            name = p.optString("name"),
+                            address = p.optString("address"),
+                            lat = if (p.has("lat")) p.optDouble("lat") else null,
+                            lon = if (p.has("lon")) p.optDouble("lon") else null,
+                            url = p.optString("url"),
+                        )
+                    },
                 )
             }
         } catch (e: Exception) {
@@ -170,6 +191,15 @@ object Store {
             o.put("completedAt", r.completedAt)
             o.put("attachments", atts)
             o.put("early", JSONArray(r.early))
+            r.place?.let { pl ->
+                val po = JSONObject()
+                po.put("name", pl.name)
+                po.put("address", pl.address)
+                pl.lat?.let { po.put("lat", it) }
+                pl.lon?.let { po.put("lon", it) }
+                po.put("url", pl.url)
+                o.put("place", po)
+            }
             arr.put(o)
         }
         val tmp = File(f.parentFile, f.name + ".tmp")
