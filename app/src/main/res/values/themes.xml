@@ -1,6 +1,6 @@
 <resources>
     <color name="ink">#12151C</color>
-    <color name="ic_launcher_background">#1E2633</color>
+    <color name="ic_launcher_background">#9AA1A8</color>
 
     <style name="Theme.HeyJason" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/ink</item>
