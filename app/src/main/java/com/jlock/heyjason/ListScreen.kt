@@ -65,6 +65,7 @@ fun ListScreen(
     onQuick: (String) -> Unit,
     onToggle: (Reminder) -> Unit,
     onClearDone: () -> Unit,
+    onCalendar: () -> Unit,
 ) {
     val now by produceState(System.currentTimeMillis()) {
         while (true) {
@@ -97,7 +98,13 @@ fun ListScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item(key = "header") { Header(active.size, overdue.size) }
+            item(key = "header") {
+                Column {
+                    Spacer(Modifier.height(4.dp))
+                    ViewSwitcher(calendar = false, onList = {}, onCalendar = onCalendar)
+                    Header(active.size, overdue.size)
+                }
+            }
             if (active.isEmpty()) item(key = "empty") { EmptyState() }
 
             if (overdue.isNotEmpty()) {
@@ -288,7 +295,7 @@ fun ReminderCard(
 }
 
 @Composable
-private fun QuickAdd(onSubmit: (String) -> Unit, onOpenEditor: () -> Unit) {
+fun QuickAdd(onSubmit: (String) -> Unit, onOpenEditor: () -> Unit) {
     val ctx = LocalContext.current
     var text by rememberSaveable { mutableStateOf("") }
     val parsed = remember(text) { if (text.isBlank()) null else NlParser.parse(text) }

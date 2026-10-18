@@ -23,11 +23,13 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
     private val openRequest = mutableStateOf<Int?>(null)
@@ -62,6 +64,7 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
     val items by Store.items.collectAsState()
     var editing by remember { mutableStateOf<Reminder?>(null) }
     var isNew by remember { mutableStateOf(false) }
+    var showCalendar by rememberSaveable { mutableStateOf(false) }
     var celebration by remember { mutableStateOf<Pair<Int, String>?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -91,6 +94,40 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
         scope.launch { snackbar.showSnackbar("Got it! I'll remind you ${describe(r.timeMillis)} 🐘") }
     }
 
+    fun openReminder(r: Reminder) {
+        editing = r
+        isNew = false
+    }
+
+    /** New reminder; on a chosen calendar day it defaults to 9 AM (or an hour from now for today). */
+    fun newReminder(title: String, day: LocalDate?, repeat: Repeat = Repeat.NONE) {
+        val time = if (day == null || !day.isAfter(LocalDate.now())) defaultTime() else toMillis(day.atTime(9, 0))
+        editing = Reminder(Store.nextId(), title, time, NlParser.guessEmoji(title), repeat = repeat)
+        isNew = true
+    }
+
+    fun quickAdd(text: String) {
+        val p = NlParser.parse(text)
+        val t = p.time
+        if (t == null) {
+            // No time given — open the editor so Jason can pick one.
+            newReminder(p.title, null, p.repeat)
+        } else {
+            val r = Reminder(Store.nextId(), p.title, t, NlParser.guessEmoji(p.title), repeat = p.repeat)
+            Actions.save(ctx, r)
+            confirm(r)
+        }
+    }
+
+    fun toggle(r: Reminder) {
+        if (r.done) {
+            Actions.uncomplete(ctx, r)
+        } else {
+            Actions.complete(ctx, r)
+            celebration = Pair((celebration?.first ?: 0) + 1, celebrationMessages.random())
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -114,42 +151,28 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     },
                 )
             }
+        } else if (showCalendar) {
+            CalendarScreen(
+                items = items,
+                snackbar = snackbar,
+                onList = { showCalendar = false },
+                onOpen = { openReminder(it) },
+                onNewOn = { day -> newReminder("", day) },
+                onQuick = { quickAdd(it) },
+                onToggle = { toggle(it) },
+            )
         } else {
             ListScreen(
                 items = items,
                 snackbar = snackbar,
-                onOpen = {
-                    editing = it
-                    isNew = false
-                },
-                onNew = {
-                    editing = Reminder(Store.nextId(), "", defaultTime())
-                    isNew = true
-                },
-                onQuick = { text ->
-                    val p = NlParser.parse(text)
-                    val t = p.time
-                    if (t == null) {
-                        // No time given — open the editor so Jason can pick one.
-                        editing = Reminder(Store.nextId(), p.title, defaultTime(), NlParser.guessEmoji(p.title), repeat = p.repeat)
-                        isNew = true
-                    } else {
-                        val r = Reminder(Store.nextId(), p.title, t, NlParser.guessEmoji(p.title), repeat = p.repeat)
-                        Actions.save(ctx, r)
-                        confirm(r)
-                    }
-                },
-                onToggle = { r ->
-                    if (r.done) {
-                        Actions.uncomplete(ctx, r)
-                    } else {
-                        Actions.complete(ctx, r)
-                        celebration = Pair((celebration?.first ?: 0) + 1, celebrationMessages.random())
-                    }
-                },
+                onOpen = { openReminder(it) },
+                onNew = { newReminder("", null) },
+                onQuick = { quickAdd(it) },
+                onToggle = { toggle(it) },
                 onClearDone = {
                     items.filter { it.done }.forEach { Actions.delete(ctx, it.id) }
                 },
+                onCalendar = { showCalendar = true },
             )
         }
 
