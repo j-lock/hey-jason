@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Store.init(this)
+        ShopStore.init(this)
         Notifs.createChannels(this)
         handleIntent(intent)
         setContent {
@@ -64,7 +65,7 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
     val items by Store.items.collectAsState()
     var editing by remember { mutableStateOf<Reminder?>(null) }
     var isNew by remember { mutableStateOf(false) }
-    var showCalendar by rememberSaveable { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(0) }
     var celebration by remember { mutableStateOf<Pair<Int, String>?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -156,11 +157,13 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     },
                 )
             }
-        } else if (showCalendar) {
+        } else if (tab == 2) {
+            ShoppingScreen(snackbar = snackbar, onTab = { tab = it })
+        } else if (tab == 1) {
             CalendarScreen(
                 items = items,
                 snackbar = snackbar,
-                onList = { showCalendar = false },
+                onTab = { tab = it },
                 onOpen = { openReminder(it) },
                 onNewOn = { day -> newReminder("", day) },
                 onQuick = { quickAdd(it) },
@@ -177,7 +180,7 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                 onClearDone = {
                     items.filter { it.done }.forEach { Actions.delete(ctx, it.id) }
                 },
-                onCalendar = { showCalendar = true },
+                onTab = { tab = it },
             )
         }
 

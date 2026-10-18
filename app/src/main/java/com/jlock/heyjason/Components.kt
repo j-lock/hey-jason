@@ -109,7 +109,7 @@ fun Segment(text: String, selected: Boolean, modifier: Modifier = Modifier, onCl
             .clip(RoundedCornerShape(50))
             .background(if (selected) Peanut else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .padding(horizontal = 8.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -121,17 +121,19 @@ fun Segment(text: String, selected: Boolean, modifier: Modifier = Modifier, onCl
     }
 }
 
-/** The 📋 List / 📅 Calendar toggle at the top of the main screens. */
+/** The 📋 List / 📅 Calendar / 🛒 Shop tabs at the top of the main screens. */
 @Composable
-fun ViewSwitcher(calendar: Boolean, onList: () -> Unit, onCalendar: () -> Unit) {
+fun ViewSwitcher(current: Int, onSelect: (Int) -> Unit) {
     Row(
         Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(50))
             .background(Card)
             .padding(4.dp),
     ) {
-        Segment("📋 List", !calendar, onClick = onList)
-        Segment("📅 Calendar", calendar, onClick = onCalendar)
+        listOf("📋 List", "📅 Calendar", "🛒 Shop").forEachIndexed { i, label ->
+            Segment(label, current == i, Modifier.weight(1f)) { onSelect(i) }
+        }
     }
 }
 

@@ -65,7 +65,7 @@ fun ListScreen(
     onQuick: (String) -> Unit,
     onToggle: (Reminder) -> Unit,
     onClearDone: () -> Unit,
-    onCalendar: () -> Unit,
+    onTab: (Int) -> Unit,
 ) {
     val now by produceState(System.currentTimeMillis()) {
         while (true) {
@@ -101,7 +101,7 @@ fun ListScreen(
             item(key = "header") {
                 Column {
                     Spacer(Modifier.height(4.dp))
-                    ViewSwitcher(calendar = false, onList = {}, onCalendar = onCalendar)
+                    ViewSwitcher(current = 0, onSelect = onTab)
                     Header(active.size, overdue.size)
                 }
             }

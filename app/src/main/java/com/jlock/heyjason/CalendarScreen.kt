@@ -91,7 +91,7 @@ private val dFmt = DateTimeFormatter.ofPattern("d", Locale.getDefault())
 fun CalendarScreen(
     items: List<Reminder>,
     snackbar: SnackbarHostState,
-    onList: () -> Unit,
+    onTab: (Int) -> Unit,
     onOpen: (Reminder) -> Unit,
     onNewOn: (LocalDate) -> Unit,
     onQuick: (String) -> Unit,
@@ -162,11 +162,7 @@ fun CalendarScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item(key = "switch") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ViewSwitcher(calendar = true, onList = onList, onCalendar = {})
-                    Spacer(Modifier.weight(1f))
-                    Elephant(56.dp)
-                }
+                ViewSwitcher(current = 1, onSelect = onTab)
             }
             item(key = "modes") {
                 Row(
