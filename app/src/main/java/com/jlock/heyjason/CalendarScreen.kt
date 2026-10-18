@@ -165,7 +165,7 @@ fun CalendarScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ViewSwitcher(calendar = true, onList = onList, onCalendar = {})
                     Spacer(Modifier.weight(1f))
-                    Elephant(44.dp)
+                    Elephant(56.dp)
                 }
             }
             item(key = "modes") {
@@ -415,7 +415,7 @@ private fun FreeDay(onAdd: () -> Unit) {
             .padding(vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Elephant(72.dp)
+        Elephant(96.dp)
         Spacer(Modifier.height(10.dp))
         Text("Nothing to remember this day.", color = TextLo, fontSize = 15.sp)
         Spacer(Modifier.height(12.dp))

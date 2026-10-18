@@ -71,7 +71,7 @@ fun Elephant(size: Dp, modifier: Modifier = Modifier, bob: Boolean = true) {
         label = "y",
     )
     Image(
-        painter = painterResource(R.drawable.elephant),
+        painter = painterResource(R.drawable.elephant_art),
         contentDescription = "Elephant",
         modifier = modifier
             .size(size)
@@ -214,7 +214,7 @@ fun Celebration(message: String, onFinished: () -> Unit) {
                 scaleY = scale.value
             },
         ) {
-            Elephant(150.dp, bob = false)
+            Elephant(190.dp, bob = false)
             Spacer(Modifier.height(16.dp))
             Text("Never forgot!", color = Peanut, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
@@ -236,7 +236,7 @@ fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Elephant(170.dp)
+        Elephant(210.dp)
         Spacer(Modifier.height(24.dp))
         Text("Hey, Jason!", color = Peanut, fontSize = 36.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))

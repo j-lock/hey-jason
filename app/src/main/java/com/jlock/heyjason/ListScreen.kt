@@ -159,7 +159,7 @@ private fun Header(count: Int, overdue: Int) {
             Text("Hey, Jason", color = TextHi, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Text(sub, color = if (overdue > 0) Peanut else TextLo, fontSize = 14.sp)
         }
-        Elephant(68.dp)
+        Elephant(84.dp)
     }
 }
 
@@ -171,7 +171,7 @@ private fun EmptyState() {
             .padding(top = 48.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Elephant(130.dp)
+        Elephant(170.dp)
         Spacer(Modifier.height(20.dp))
         Text("Nothing to remember.", color = TextHi, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Text("Enjoy the peanuts 🥜", color = TextLo, fontSize = 16.sp)
