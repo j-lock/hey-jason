@@ -30,19 +30,36 @@ class AlarmActivity : ComponentActivity() {
             finish()
             return
         }
+        val early = intent.getIntExtra(Scheduler.EXTRA_MINUTES, -1)
+        val ctx = this
         setContent {
             HeyJasonTheme {
-                AlarmScreen(
-                    r,
-                    onDone = {
-                        Actions.doneFromAlert(this@AlarmActivity, id)
-                        finish()
-                    },
-                    onSnooze = {
-                        Actions.snooze(this@AlarmActivity, id, 10)
-                        finish()
-                    },
-                )
+                if (early >= 0) {
+                    AlarmScreen(
+                        r,
+                        earlyMinutes = early,
+                        onPrimary = {
+                            Notifs.cancelEarly(ctx, id)
+                            finish()
+                        },
+                        onSecondary = {
+                            Actions.doneEarly(ctx, id)
+                            finish()
+                        },
+                    )
+                } else {
+                    AlarmScreen(
+                        r,
+                        onPrimary = {
+                            Actions.doneFromAlert(ctx, id)
+                            finish()
+                        },
+                        onSecondary = {
+                            Actions.snooze(ctx, id, 10)
+                            finish()
+                        },
+                    )
+                }
             }
         }
     }

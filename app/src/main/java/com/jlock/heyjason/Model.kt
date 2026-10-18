@@ -29,7 +29,28 @@ data class Reminder(
     val done: Boolean = false,
     val completedAt: Long = 0L,
     val attachments: List<Attachment> = emptyList(),
+    /** Heads-up alerts, in minutes before the reminder's time. */
+    val early: List<Int> = emptyList(),
 )
+
+/** "1 hour", "2 days", "15 min"… */
+fun earlyLabel(minutes: Int): String {
+    fun plural(n: Int, unit: String) = if (n == 1) "1 $unit" else "$n ${unit}s"
+    return when {
+        minutes >= 10080 && minutes % 10080 == 0 -> plural(minutes / 10080, "week")
+        minutes >= 1440 && minutes % 1440 == 0 -> plural(minutes / 1440, "day")
+        minutes >= 60 && minutes % 60 == 0 -> plural(minutes / 60, "hour")
+        else -> "$minutes min"
+    }
+}
+
+/** Compact form for badges: "1h", "2d", "15m". */
+fun earlyShort(minutes: Int): String = when {
+    minutes >= 10080 && minutes % 10080 == 0 -> "${minutes / 10080}w"
+    minutes >= 1440 && minutes % 1440 == 0 -> "${minutes / 1440}d"
+    minutes >= 60 && minutes % 60 == 0 -> "${minutes / 60}h"
+    else -> "${minutes}m"
+}
 
 object Recurrence {
     /** Next occurrence of a repeating reminder strictly after [after]. */
@@ -102,6 +123,7 @@ object Store {
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
                 val atts = o.optJSONArray("attachments") ?: JSONArray()
+                val early = o.optJSONArray("early") ?: JSONArray()
                 Reminder(
                     id = o.getInt("id"),
                     title = o.optString("title"),
@@ -116,6 +138,7 @@ object Store {
                         val a = atts.getJSONObject(j)
                         Attachment(a.getString("file"), a.optString("name"), a.optString("mime"))
                     },
+                    early = (0 until early.length()).map { j -> early.getInt(j) },
                 )
             }
         } catch (e: Exception) {
@@ -146,6 +169,7 @@ object Store {
             o.put("done", r.done)
             o.put("completedAt", r.completedAt)
             o.put("attachments", atts)
+            o.put("early", JSONArray(r.early))
             arr.put(o)
         }
         val tmp = File(f.parentFile, f.name + ".tmp")

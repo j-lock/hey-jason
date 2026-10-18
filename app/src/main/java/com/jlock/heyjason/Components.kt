@@ -223,9 +223,12 @@ fun Celebration(message: String, onFinished: () -> Unit) {
     }
 }
 
-/** Shown over the lock screen when an alarm-style reminder goes off. */
+/**
+ * Shown over the lock screen when an alarm-style reminder goes off.
+ * With [earlyMinutes] it's a heads-up: primary button dismisses, secondary marks it done already.
+ */
 @Composable
-fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
+fun AlarmScreen(r: Reminder, onPrimary: () -> Unit, onSecondary: () -> Unit, earlyMinutes: Int? = null) {
     Column(
         Modifier
             .fillMaxSize()
@@ -238,7 +241,12 @@ fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
     ) {
         Elephant(210.dp)
         Spacer(Modifier.height(24.dp))
-        Text("Hey, Jason!", color = Peanut, fontSize = 36.sp, fontWeight = FontWeight.Bold)
+        Text(
+            if (earlyMinutes != null) "Heads up, Jason!" else "Hey, Jason!",
+            color = Peanut,
+            fontSize = 36.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Spacer(Modifier.height(12.dp))
         Text(
             "${r.emoji}  ${r.title}",
@@ -247,6 +255,15 @@ fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
+        if (earlyMinutes != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "In ${earlyLabel(earlyMinutes)} · ${describe(r.timeMillis)}",
+                color = Trunk,
+                fontSize = 17.sp,
+                textAlign = TextAlign.Center,
+            )
+        }
         if (r.note.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(r.note, color = TextLo, fontSize = 16.sp, textAlign = TextAlign.Center)
@@ -257,11 +274,11 @@ fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(Peanut)
-                .clickable(onClick = onDone)
+                .clickable(onClick = onPrimary)
                 .padding(vertical = 18.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("✓  Got it", color = OnPeanut, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(if (earlyMinutes != null) "👍  Got it" else "✓  Got it", color = OnPeanut, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(12.dp))
         Box(
@@ -269,11 +286,11 @@ fun AlarmScreen(r: Reminder, onDone: () -> Unit, onSnooze: () -> Unit) {
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(Card)
-                .clickable(onClick = onSnooze)
+                .clickable(onClick = onSecondary)
                 .padding(vertical = 18.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("💤  Snooze 10 min", color = TextHi, fontSize = 18.sp)
+            Text(if (earlyMinutes != null) "✓  Done already" else "💤  Snooze 10 min", color = TextHi, fontSize = 18.sp)
         }
     }
 }

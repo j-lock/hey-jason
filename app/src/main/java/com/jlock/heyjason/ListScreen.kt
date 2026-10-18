@@ -256,6 +256,7 @@ fun ReminderCard(
     val badges = buildString {
         if (r.repeat != Repeat.NONE) append("  🔁 ${r.repeat.label}")
         if (r.alarm) append("  ⏰")
+        if (r.early.isNotEmpty()) append("  ⏳" + r.early.sortedDescending().joinToString(",") { earlyShort(it) })
         if (r.attachments.isNotEmpty()) append("  📎${r.attachments.size}")
         if (r.note.isNotBlank()) append("  📝")
     }

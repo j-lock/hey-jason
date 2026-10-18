@@ -91,7 +91,12 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
     }
 
     fun confirm(r: Reminder) {
-        scope.launch { snackbar.showSnackbar("Got it! I'll remind you ${describe(r.timeMillis)} 🐘") }
+        val extra = when (r.early.size) {
+            0 -> ""
+            1 -> " (+ heads-up ${earlyLabel(r.early[0])} before)"
+            else -> " (+ ${r.early.size} heads-ups)"
+        }
+        scope.launch { snackbar.showSnackbar("Got it! I'll remind you ${describe(r.timeMillis)}$extra 🐘") }
     }
 
     fun openReminder(r: Reminder) {
@@ -100,9 +105,9 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
     }
 
     /** New reminder; on a chosen calendar day it defaults to 9 AM (or an hour from now for today). */
-    fun newReminder(title: String, day: LocalDate?, repeat: Repeat = Repeat.NONE) {
+    fun newReminder(title: String, day: LocalDate?, repeat: Repeat = Repeat.NONE, early: List<Int> = emptyList()) {
         val time = if (day == null || !day.isAfter(LocalDate.now())) defaultTime() else toMillis(day.atTime(9, 0))
-        editing = Reminder(Store.nextId(), title, time, NlParser.guessEmoji(title), repeat = repeat)
+        editing = Reminder(Store.nextId(), title, time, NlParser.guessEmoji(title), repeat = repeat, early = early)
         isNew = true
     }
 
@@ -111,9 +116,9 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
         val t = p.time
         if (t == null) {
             // No time given — open the editor so Jason can pick one.
-            newReminder(p.title, null, p.repeat)
+            newReminder(p.title, null, p.repeat, p.early)
         } else {
-            val r = Reminder(Store.nextId(), p.title, t, NlParser.guessEmoji(p.title), repeat = p.repeat)
+            val r = Reminder(Store.nextId(), p.title, t, NlParser.guessEmoji(p.title), repeat = p.repeat, early = p.early)
             Actions.save(ctx, r)
             confirm(r)
         }

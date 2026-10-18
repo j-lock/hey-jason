@@ -12,7 +12,7 @@ import java.time.LocalTime
  * and repeats like "every day", "every monday", "weekly", "monthly", "yearly".
  */
 object NlParser {
-    data class Result(val title: String, val time: Long?, val repeat: Repeat)
+    data class Result(val title: String, val time: Long?, val repeat: Repeat, val early: List<Int> = emptyList())
 
     private const val WD_FULL = "(monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
     private const val WD_ANY =
@@ -94,6 +94,28 @@ object NlParser {
         var time: LocalTime? = null
         var partTime: LocalTime? = null
         var exact: LocalDateTime? = null
+
+        // --- Heads-ups: "1 hour before", "a day early", "30 min ahead", "the day before" ---
+        val early = mutableListOf<Int>()
+        while (true) {
+            val m = take(
+                "(?:,\\s*|\\b(?:and|with|plus)\\s+)?(?:\\b(?:remind|warn|alert)\\s+me\\s+)?\\b" +
+                    "(the|$AMOUNT)\\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|wks?|w|night)\\s+" +
+                    "(?:before(?:hand)?|early|earlier|ahead|prior|in\\s+advance)\\b"
+            ) ?: break
+            val amt = m.groupValues[1]
+            val unit = m.groupValues[3]
+            val half = amt.startsWith("half")
+            val n = if (amt == "the") 1 else amt.toIntOrNull() ?: numberWords[amt.replace('-', ' ')] ?: 1
+            val minutes = when {
+                unit == "night" -> 720
+                unit.startsWith("m") -> if (half) 30 else n
+                unit.startsWith("h") -> if (half) 30 else n * 60
+                unit.startsWith("d") -> n * 1440
+                else -> n * 10080
+            }
+            if (minutes > 0 && minutes !in early) early += minutes
+        }
 
         // --- Repeats ---
         take("\\b(every\\s*day|daily|each\\s+day)\\b")?.let { rep = Repeat.DAILY }
@@ -213,7 +235,7 @@ object NlParser {
         title = title.replace(
             Regex("(?i)^(hey,?\\s+jason[,!.]?\\s*)?(please\\s+)?(remind\\s+me\\s+(to\\s+|about\\s+)?)?"), ""
         )
-        val dangling = Regex("(?i)(\\s+|^)(at|on|by|in|the|this|next|every|each|and|for|@|,|-)$")
+        val dangling = Regex("(?i)(\\s+|^)(at|on|by|in|the|this|next|every|each|and|with|plus|for|@|,|-)$")
         val leading = Regex("(?i)^(to|on|at|by|and|,|-)\\s+")
         for (pass in 0 until 5) {
             title = title.replace(dangling, "").replace(leading, "").trim().trimEnd(',', ';', ':', '-', '@').trim()
@@ -226,7 +248,7 @@ object NlParser {
             val m = toMillis(it)
             if (rep != Repeat.NONE && m <= nowMs) Recurrence.next(m, rep, nowMs) else m
         }
-        return Result(title, millis, rep)
+        return Result(title, millis, rep, early.sortedDescending())
     }
 
     private val emojiRules = listOf(

@@ -24,6 +24,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -92,6 +94,7 @@ fun EditorScreen(
     var repeat by remember { mutableStateOf(initial.repeat) }
     var alarm by remember { mutableStateOf(initial.alarm) }
     var note by remember { mutableStateOf(initial.note) }
+    val early = remember { mutableStateListOf<Int>().apply { addAll(initial.early) } }
     val attachments = remember { mutableStateListOf<Attachment>().apply { addAll(initial.attachments) } }
     var pendingPhoto by remember { mutableStateOf<File?>(null) }
     var showFsiPrompt by remember { mutableStateOf(false) }
@@ -112,6 +115,7 @@ fun EditorScreen(
             alarm = alarm,
             note = note.trim(),
             attachments = attachments.toList(),
+            early = early.distinct().sortedDescending().take(Scheduler.MAX_EARLY),
             done = if (millis > System.currentTimeMillis()) false else initial.done,
             completedAt = if (millis > System.currentTimeMillis()) 0L else initial.completedAt,
         )
@@ -220,6 +224,7 @@ fun EditorScreen(
                     dateTime = toLdt(suggested)
                     title = titleParse.title
                     if (titleParse.repeat != Repeat.NONE) repeat = titleParse.repeat
+                    titleParse.early.forEach { m -> if (m !in early) early.add(m) }
                 }
             }
 
@@ -284,6 +289,26 @@ fun EditorScreen(
             Text(
                 if (alarm) "Rings and fills the screen until you tap it — great for the important stuff."
                 else "A regular notification with a sound.",
+                color = TextLo,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+            )
+
+            // HEADS-UP
+            Label("Heads-up beforehand")
+            val shown = (EARLY_PRESETS + early.filter { it !in EARLY_PRESETS }).distinct().sorted()
+            FlowPills(shown) { m ->
+                Pill("⏳ " + earlyLabel(m), selected = m in early) {
+                    if (m in early) early.remove(m) else if (early.size < Scheduler.MAX_EARLY) early.add(m)
+                }
+            }
+            val eventMs = toMillis(dateTime)
+            Text(
+                if (early.isEmpty()) "Only at the time itself. Pick one or more to get warned earlier."
+                else "You'll hear from me " + early.sortedDescending().joinToString(", ") { m ->
+                    val at = eventMs - m * 60_000L
+                    describe(at) + if (at <= System.currentTimeMillis()) " (passed)" else ""
+                } + ", and again at the time.",
                 color = TextLo,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(top = 6.dp, start = 4.dp),
@@ -381,6 +406,20 @@ fun EditorScreen(
                 TextButton(onClick = { confirmDelete = false }) { Text("Keep", color = TextLo) }
             },
         )
+    }
+}
+
+private val EARLY_PRESETS = listOf(5, 15, 30, 60, 120, 1440, 2880, 10080)
+
+/** Pills that wrap onto several lines. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowPills(values: List<Int>, content: @Composable (Int) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        values.forEach { content(it) }
     }
 }
 
