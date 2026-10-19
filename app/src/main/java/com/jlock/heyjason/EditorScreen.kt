@@ -84,6 +84,7 @@ fun EditorScreen(
     onClose: () -> Unit,
     onSaved: (Reminder) -> Unit,
     onDelete: (Reminder) -> Unit,
+    onUncomplete: (Reminder) -> Unit,
 ) {
     val ctx = LocalContext.current
     var title by remember { mutableStateOf(initial.title) }
@@ -212,6 +213,28 @@ fun EditorScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
         ) {
+            if (initial.done) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Mint.copy(alpha = 0.14f))
+                        .padding(14.dp),
+                ) {
+                    Text(
+                        "✓ Remembered " + dayLabel(initial.completedAt).let { d ->
+                            if (d == "Today" || d == "Yesterday") d.lowercase() else "on $d"
+                        },
+                        color = Mint,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Pill("↩  Move back to my to-do list", selected = true) { onUncomplete(initial) }
+                }
+            }
+
             // WHAT
             Label("What")
             OutlinedTextField(

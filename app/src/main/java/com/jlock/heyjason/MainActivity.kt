@@ -13,7 +13,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -134,13 +140,38 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
         }
     }
 
-    fun toggle(r: Reminder) {
-        if (r.done) {
-            Actions.uncomplete(ctx, r)
-        } else {
-            Actions.complete(ctx, r)
-            celebration = Pair((celebration?.first ?: 0) + 1, celebrationMessages.random())
+    fun uncomplete(r: Reminder) {
+        Actions.uncomplete(ctx, r)
+        val overdue = r.timeMillis <= System.currentTimeMillis()
+        scope.launch {
+            snackbar.showSnackbar(
+                if (overdue) "↩ Back on your list (overdue — tap it to pick a new time)"
+                else "↩ Back on your list for ${describe(r.timeMillis)}"
+            )
         }
+    }
+
+    fun complete(r: Reminder) {
+        val before = r // kept so it can be undone, including a repeat's previous time
+        Actions.complete(ctx, r)
+        celebration = Pair((celebration?.first ?: 0) + 1, celebrationMessages.random())
+        scope.launch {
+            val res = snackbar.showSnackbar(
+                message = if (r.repeat == Repeat.NONE) "✓ “${r.title}” done" else "✓ Done — next one is ${describe(Store.get(r.id)?.timeMillis ?: r.timeMillis)}",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Long,
+            )
+            if (res == SnackbarResult.ActionPerformed) {
+                Actions.save(ctx, before.copy(done = false, completedAt = 0L))
+            }
+        }
+    }
+
+    // Ticking the circle asks first, so an accidental tap doesn't complete anything.
+    var confirmDone by remember { mutableStateOf<Reminder?>(null) }
+
+    fun toggle(r: Reminder) {
+        if (r.done) uncomplete(r) else confirmDone = r
     }
 
     Box(
@@ -163,6 +194,10 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     onDelete = { r ->
                         Actions.delete(ctx, r.id)
                         editing = null
+                    },
+                    onUncomplete = { r ->
+                        editing = null
+                        uncomplete(r)
                     },
                 )
             }
@@ -190,6 +225,30 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     items.filter { it.done }.forEach { Actions.delete(ctx, it.id) }
                 },
                 onTab = { tab = it },
+            )
+        }
+
+        confirmDone?.let { r ->
+            AlertDialog(
+                onDismissRequest = { confirmDone = null },
+                title = { Text("Mark as done?") },
+                text = {
+                    Text(
+                        "${r.emoji}  ${r.title}" +
+                            if (r.repeat != Repeat.NONE)
+                                "\n\nThis one repeats (${r.repeat.label.lowercase()}), so it'll move to its next time."
+                            else ""
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmDone = null
+                        complete(r)
+                    }) { Text("✓ Yes, done", color = Peanut, fontWeight = FontWeight.Bold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDone = null }) { Text("Not yet", color = TextLo) }
+                },
             )
         }
 
