@@ -55,7 +55,7 @@ fun rememberSignIn(onDone: (Boolean, String?) -> Unit): () -> Unit {
         // Ask Google for the result even when it says "cancelled" — the error inside tells us why.
         try {
             val r = Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data)
-            onDone(r.accessToken != null)
+            onDone(r.accessToken != null, null)
         } catch (e: ApiException) {
             val why = when (e.statusCode) {
                 10 -> "Google doesn't recognise this app yet (code 10). Check the Android client in Google Cloud: " +
