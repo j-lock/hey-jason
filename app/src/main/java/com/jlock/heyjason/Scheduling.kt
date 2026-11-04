@@ -55,6 +55,7 @@ object Scheduler {
         cancelEarly(ctx, am, r.id)
         val now = System.currentTimeMillis()
         if (r.done || r.timeMillis <= now) return
+        if (!Prefs.ring(ctx)) return // this phone is set to stay quiet
         setExact(ctx, am, r.timeMillis, firePi(ctx, r.id, false), r.alarm, r.id)
         r.early.distinct().take(MAX_EARLY).forEachIndexed { slot, minutes ->
             val at = r.timeMillis - minutes * 60_000L
@@ -64,6 +65,7 @@ object Scheduler {
 
     /** A one-off snooze that doesn't disturb a repeating reminder's schedule. */
     fun scheduleSnooze(ctx: Context, r: Reminder, at: Long) {
+        if (!Prefs.ring(ctx)) return
         val am = ctx.getSystemService(AlarmManager::class.java)
         setExact(ctx, am, at, firePi(ctx, r.id, true), r.alarm, r.id)
     }
@@ -94,6 +96,12 @@ object Scheduler {
         } catch (e: SecurityException) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         }
+    }
+
+    /** Removes every alarm on this phone (used when "Ring on this phone" is turned off). */
+    fun cancelAll(ctx: Context) {
+        Store.init(ctx)
+        Store.items.value.forEach { cancel(ctx, it.id) }
     }
 
     /** After a reboot, time change or app update, put every alarm back. */

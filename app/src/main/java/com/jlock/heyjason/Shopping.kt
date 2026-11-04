@@ -13,6 +13,8 @@ data class ShopItem(
     val cat: String,
     val got: Boolean = false,
     val addedAt: Long = System.currentTimeMillis(),
+    /** Last change on any phone (used to merge between phones). */
+    val updatedAt: Long = System.currentTimeMillis(),
 )
 
 data class ShopCategory(val key: String, val label: String, val emoji: String, val words: List<String>)
@@ -82,6 +84,11 @@ object ShopStore {
     /** How often each item has been bought (lower-case name → count). */
     private val _history = MutableStateFlow<Map<String, Int>>(emptyMap())
     val history: StateFlow<Map<String, Int>> = _history
+    /** Removed item id → when, so a sync removes it on the other phone too. */
+    var deleted: Map<Long, Long> = emptyMap()
+        private set
+
+    var onLocalChange: (() -> Unit)? = null
 
     @Synchronized
     fun init(ctx: Context) {
@@ -90,22 +97,32 @@ object ShopStore {
         load()
     }
 
+    private fun now() = System.currentTimeMillis()
+
+    /** Unique across phones: time in ms × 1000 plus a random part. */
+    private fun newId(): Long = now() * 1000 + kotlin.random.Random.nextLong(1000)
+
+    private fun changed() {
+        save()
+        onLocalChange?.invoke()
+    }
+
     @Synchronized
     fun add(names: List<String>) {
         val existing = _items.value.filter { !it.got }.map { it.name.lowercase() }.toSet()
-        var id = System.currentTimeMillis()
         val added = names.filter { it.lowercase() !in existing }.distinctBy { it.lowercase() }.map { n ->
-            ShopItem(id++, n, guessCategory(n))
+            ShopItem(newId(), n, guessCategory(n))
         }
         if (added.isEmpty()) return
         _items.value = _items.value + added
-        save()
+        changed()
     }
 
     @Synchronized
     fun update(item: ShopItem) {
-        _items.value = _items.value.map { if (it.id == item.id) item else it }
-        save()
+        val stamped = item.copy(updatedAt = now())
+        _items.value = _items.value.map { if (it.id == item.id) stamped else it }
+        changed()
     }
 
     @Synchronized
@@ -114,7 +131,8 @@ object ShopStore {
     @Synchronized
     fun remove(item: ShopItem) {
         _items.value = _items.value.filter { it.id != item.id }
-        save()
+        deleted = deleted + (item.id to now())
+        changed()
     }
 
     /** Clears everything in the cart and remembers it for "Buy again". Returns how many were cleared. */
@@ -126,7 +144,9 @@ object ShopStore {
         got.forEach { val k = it.name.lowercase(); h[k] = (h[k] ?: 0) + 1 }
         _history.value = h
         _items.value = _items.value.filter { !it.got }
-        save()
+        val t = now()
+        deleted = deleted + got.associate { it.id to t }
+        changed()
         return got.size
     }
 
@@ -143,7 +163,18 @@ object ShopStore {
     @Synchronized
     fun forget(name: String) {
         _history.value = _history.value - name.lowercase()
+        changed()
+    }
+
+    /** Used by sync: merges the other phone's list in without stamping new edit times. */
+    @Synchronized
+    fun mergeFromSync(list: List<ShopItem>, hist: Map<String, Int>, del: Map<Long, Long>): Merge.Result<Long, ShopItem> {
+        val m = Merge.shopping(_items.value, deleted, list, del)
+        _items.value = m.items
+        _history.value = Merge.history(_history.value, hist)
+        deleted = m.deleted
         save()
+        return m
     }
 
     private fun load() {
@@ -152,18 +183,11 @@ object ShopStore {
         try {
             val o = JSONObject(f.readText())
             val arr = o.optJSONArray("items") ?: JSONArray()
-            _items.value = (0 until arr.length()).map { i ->
-                val it = arr.getJSONObject(i)
-                ShopItem(
-                    id = it.getLong("id"),
-                    name = it.optString("name"),
-                    cat = it.optString("cat", "other"),
-                    got = it.optBoolean("got"),
-                    addedAt = it.optLong("addedAt"),
-                )
-            }
+            _items.value = (0 until arr.length()).map { i -> shopItemFromJson(arr.getJSONObject(i)) }
             val h = o.optJSONObject("history") ?: JSONObject()
             _history.value = h.keys().asSequence().associateWith { h.optInt(it) }
+            val d = o.optJSONObject("deleted") ?: JSONObject()
+            deleted = d.keys().asSequence().associate { it.toLong() to d.getLong(it) }
         } catch (e: Exception) {
             // Start fresh if the file is unreadable.
         }
@@ -172,22 +196,37 @@ object ShopStore {
     private fun save() {
         val f = file ?: return
         val arr = JSONArray()
-        _items.value.forEach { s ->
-            val o = JSONObject()
-            o.put("id", s.id)
-            o.put("name", s.name)
-            o.put("cat", s.cat)
-            o.put("got", s.got)
-            o.put("addedAt", s.addedAt)
-            arr.put(o)
-        }
+        _items.value.forEach { arr.put(shopItemToJson(it)) }
         val h = JSONObject()
         _history.value.forEach { (k, v) -> h.put(k, v) }
+        val d = JSONObject()
+        deleted.forEach { (k, v) -> d.put(k.toString(), v) }
         val root = JSONObject()
         root.put("items", arr)
         root.put("history", h)
+        root.put("deleted", d)
         val tmp = File(f.parentFile, f.name + ".tmp")
         tmp.writeText(root.toString())
         tmp.renameTo(f)
     }
+}
+
+fun shopItemFromJson(o: JSONObject) = ShopItem(
+    id = o.getLong("id"),
+    name = o.optString("name"),
+    cat = o.optString("cat", "other"),
+    got = o.optBoolean("got"),
+    addedAt = o.optLong("addedAt"),
+    updatedAt = o.optLong("updated", o.optLong("addedAt")),
+)
+
+fun shopItemToJson(s: ShopItem): JSONObject {
+    val o = JSONObject()
+    o.put("id", s.id)
+    o.put("name", s.name)
+    o.put("cat", s.cat)
+    o.put("got", s.got)
+    o.put("addedAt", s.addedAt)
+    o.put("updated", s.updatedAt)
+    return o
 }

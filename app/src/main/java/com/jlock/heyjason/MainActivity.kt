@@ -54,6 +54,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Catch up with the other phone whenever the app is opened.
+        Sync.requestSoon(this, delaySeconds = 0)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
@@ -201,6 +207,8 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     },
                 )
             }
+        } else if (tab == 3) {
+            SettingsScreen(onBack = { tab = 0 })
         } else if (tab == 2) {
             ShoppingScreen(snackbar = snackbar, onTab = { tab = it })
         } else if (tab == 1) {
@@ -225,6 +233,7 @@ fun HeyJasonApp(openRequest: MutableState<Int?>) {
                     items.filter { it.done }.forEach { Actions.delete(ctx, it.id) }
                 },
                 onTab = { tab = it },
+                onSettings = { tab = 3 },
             )
         }
 

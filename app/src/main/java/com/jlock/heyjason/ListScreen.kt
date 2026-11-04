@@ -66,6 +66,7 @@ fun ListScreen(
     onToggle: (Reminder) -> Unit,
     onClearDone: () -> Unit,
     onTab: (Int) -> Unit,
+    onSettings: () -> Unit,
 ) {
     val now by produceState(System.currentTimeMillis()) {
         while (true) {
@@ -102,7 +103,8 @@ fun ListScreen(
                 Column {
                     Spacer(Modifier.height(4.dp))
                     ViewSwitcher(current = 0, onSelect = onTab)
-                    Header(active.size, overdue.size)
+                    SyncBanner(onSettings)
+                    Header(active.size, overdue.size, onSettings)
                 }
             }
             if (active.isEmpty()) item(key = "empty") { EmptyState() }
@@ -134,7 +136,7 @@ fun ListScreen(
 }
 
 @Composable
-private fun Header(count: Int, overdue: Int) {
+private fun Header(count: Int, overdue: Int, onSettings: () -> Unit) {
     val hour = LocalTime.now().hour
     val greet = when {
         hour < 5 -> "Up late?"
@@ -159,7 +161,17 @@ private fun Header(count: Int, overdue: Int) {
             Text("Hey, Jason", color = TextHi, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Text(sub, color = if (overdue > 0) Peanut else TextLo, fontSize = 14.sp)
         }
-        Elephant(84.dp)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                "⚙️",
+                fontSize = 20.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onSettings)
+                    .padding(8.dp),
+            )
+            Elephant(84.dp)
+        }
     }
 }
 
