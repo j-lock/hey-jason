@@ -195,6 +195,9 @@ object Sync {
             remoteHistory = h.keys().asSequence().associateWith { h.optInt(it) }
         }
 
+        // Snapshot before anything changes, so renumbered or updated reminders get their alarms reset.
+        val before = Store.items.value.associateBy { it.id }
+
         // 2. First time on this phone: renumber any reminders whose ids clash with the other phone's.
         if (!Prefs.joined(ctx)) {
             val clashes = Merge.clashingIds(Store.items.value, remoteReminders, remoteRemDeleted) { taken ->
@@ -211,7 +214,6 @@ object Sync {
         }
 
         // 3. Merge.
-        val before = Store.items.value.associateBy { it.id }
         val preview = Merge.reminders(Store.items.value, Store.deleted, remoteReminders, remoteRemDeleted)
 
         // 4. Download attachments the other phone added, before showing the reminders here.
