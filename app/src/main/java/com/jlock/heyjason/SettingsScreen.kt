@@ -1,6 +1,5 @@
 package com.jlock.heyjason
 
-import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,36 +42,55 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** Launches Google's "allow Hey, Jason to use Drive" screen and turns sync on when approved. */
 @Composable
-fun rememberSignIn(onDone: (Boolean) -> Unit): () -> Unit {
+fun rememberSignIn(onDone: (Boolean, String?) -> Unit): () -> Unit {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { res ->
-        if (res.resultCode == Activity.RESULT_OK) {
-            val ok = runCatching {
-                Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data).accessToken != null
-            }.getOrDefault(false)
-            onDone(ok)
-        } else {
-            onDone(false)
+        // Ask Google for the result even when it says "cancelled" — the error inside tells us why.
+        try {
+            val r = Identity.getAuthorizationClient(ctx).getAuthorizationResultFromIntent(res.data)
+            onDone(r.accessToken != null)
+        } catch (e: ApiException) {
+            val why = when (e.statusCode) {
+                10 -> "Google doesn't recognise this app yet (code 10). Check the Android client in Google Cloud: " +
+                    "package com.jlock.heyjason and the SHA-1 fingerprint."
+                16, 12501 -> "Sign-in was cancelled (code ${e.statusCode})."
+                7 -> "No internet connection (code 7)."
+                else -> "Google sign-in error, code ${e.statusCode}: ${e.message}"
+            }
+            Toast.makeText(ctx, why, Toast.LENGTH_LONG).show()
+            onDone(false, why)
+        } catch (e: Exception) {
+            val why = "Sign-in failed (result ${res.resultCode}): ${e.message ?: e.javaClass.simpleName}"
+            Toast.makeText(ctx, why, Toast.LENGTH_LONG).show()
+            onDone(false, why)
         }
     }
     return {
         scope.launch {
             try {
                 Sync.token(ctx) // already allowed → no screen needed
-                onDone(true)
+                onDone(true, null)
             } catch (e: NeedsSignInException) {
                 val pi = e.resolution
                 if (pi != null) launcher.launch(IntentSenderRequest.Builder(pi.intentSender).build())
-                else onDone(false)
+                else onDone(false, "Google didn't offer a sign-in screen.")
+            } catch (e: ApiException) {
+                val why = if (e.statusCode == 10)
+                    "Google doesn't recognise this app yet (code 10). Check the Android client in Google Cloud."
+                else "Google sign-in error, code ${e.statusCode}: ${e.message}"
+                Toast.makeText(ctx, why, Toast.LENGTH_LONG).show()
+                onDone(false, why)
             } catch (e: Exception) {
-                Toast.makeText(ctx, "Couldn't reach Google: ${e.message}", Toast.LENGTH_LONG).show()
-                onDone(false)
+                val why = "Couldn't reach Google: ${e.message}"
+                Toast.makeText(ctx, why, Toast.LENGTH_LONG).show()
+                onDone(false, why)
             }
         }
     }
@@ -105,7 +123,9 @@ fun SettingsScreen(onBack: () -> Unit) {
     // Re-read after each sync finishes.
     val lastSync = remember(status, now) { Prefs.lastSync(ctx) }
 
-    val signIn = rememberSignIn { ok ->
+    var signInError by remember { mutableStateOf<String?>(null) }
+    val signIn = rememberSignIn { ok, why ->
+        signInError = if (ok) null else why
         if (ok) {
             Sync.turnOn(ctx)
             scope.launch {
@@ -117,8 +137,6 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
                 Toast.makeText(ctx, msg, Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Toast.makeText(ctx, "Sign-in was cancelled", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -183,6 +201,14 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+            signInError?.let { err ->
+                Text(
+                    "⚠️ $err",
+                    color = Coral,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 8.dp, start = 4.dp),
+                )
             }
             if (status != SyncStatus.Off) {
                 Text(
